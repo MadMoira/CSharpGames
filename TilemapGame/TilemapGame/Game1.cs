@@ -5,9 +5,18 @@ using Microsoft.Xna.Framework.Input;
 
 namespace TilemapGame
 {
+    internal enum Direction
+    {
+        North = 0,
+        East = 1,
+        South = 2,
+        West = 3,
+    }
+    
     public interface IBlock
     {
-        void DrawSelf(SpriteBatch sb, Texture2D tiles, Vector2 pos, Vector2 size);
+        public void DrawSelf(SpriteBatch sb, Texture2D tiles, Vector2 pos, Vector2 size);
+        bool Push(int from);
     }
     
     public class block_solid : IBlock
@@ -15,6 +24,11 @@ namespace TilemapGame
         public void DrawSelf(SpriteBatch sb, Texture2D tiles, Vector2 pos, Vector2 size)
         {
             sb.Draw(tiles, pos*size, new Rectangle(0, 0, (int) size.X, (int) size.Y), Color.White);
+        }
+
+        public bool Push(int from)
+        {
+            return false;
         }
     }
 
@@ -24,6 +38,11 @@ namespace TilemapGame
         {
             sb.Draw(tiles, pos*size, new Rectangle(32, 0, (int) size.X, (int) size.Y), Color.White);
         }
+
+        public bool Push(int from)
+        {
+            return true;
+        }
     }
 
     public class block_simple : IBlock
@@ -31,6 +50,11 @@ namespace TilemapGame
         public void DrawSelf(SpriteBatch sb, Texture2D tiles, Vector2 pos, Vector2 size)
         {
             sb.Draw(tiles, pos*size, new Rectangle(64, 0, (int) size.X, (int) size.Y), Color.White);
+        }
+
+        public bool Push(int @from)
+        {
+            return true;
         }
     }
     
@@ -47,7 +71,7 @@ namespace TilemapGame
             #...####.......#
             #...#..........#
             #...#..........#
-            #........+.....#
+            #........++....#
             #..............#
             #........#.....#
             #........#.....#
@@ -58,9 +82,12 @@ namespace TilemapGame
             ################
         ";
 
-        private List<IBlock> lLevel = new List<IBlock>();
+        private readonly List<IBlock> lLevel = new List<IBlock>();
         private readonly Vector2 vLevelSize = new Vector2(16, 15);
-        private Vector2 vTileSize = new Vector2(16, 16);
+        private readonly Vector2 vTileSize = new Vector2(16, 16);
+        private Vector2 vPlayer;
+        private double lastAction;
+        private const double timeBetweenActions = 150;
 
         private void LoadLevel(int n)
         {
@@ -78,6 +105,7 @@ namespace TilemapGame
                         
                         case 'P':
                             lLevel.Add(new block_player());
+                            vPlayer = new Vector2(x, y);
                             break;
                         
                         case '+':
@@ -90,6 +118,13 @@ namespace TilemapGame
                     }
                 }
             }
+        }
+
+        public static void Swap<T>(IList<T> list, int indexA, int indexB)
+        {
+            var tmp = list[indexA];
+            list[indexA] = list[indexB];
+            list[indexB] = tmp;
         }
         
         public Game1()
@@ -118,10 +153,98 @@ namespace TilemapGame
 
         protected override void Update(GameTime gameTime)
         {
+            int Id(Vector2 pos) => (int) (pos.Y * vLevelSize.X + pos.X);
+            
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed ||
                 Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
 
+            var bPushing = false;
+            Direction dirPush = Direction.North;
+            
+            if (Keyboard.GetState().IsKeyDown(Keys.W))
+            {
+                dirPush = Direction.North;
+                bPushing = true;
+            }
+            
+            if (Keyboard.GetState().IsKeyDown(Keys.S))
+            {
+                dirPush = Direction.South;
+                bPushing = true;
+            }
+            
+            if (Keyboard.GetState().IsKeyDown(Keys.A))
+            {
+                dirPush = Direction.West;
+                bPushing = true;
+            }
+            
+            if (Keyboard.GetState().IsKeyDown(Keys.D))
+            {
+                dirPush = Direction.East;
+                bPushing = true;
+            }
+
+            if (bPushing && gameTime.TotalGameTime.TotalMilliseconds > lastAction + timeBetweenActions)
+            {
+                var vBlock = vPlayer;
+
+                var bAllowPush = false;
+                var bTest = true;
+
+                while (bTest)
+                {
+                    if (lLevel[Id(vBlock)] != null)
+                    {
+                        if (lLevel[Id(vBlock)].Push(((int) dirPush + 2) % 4))
+                        {
+                            switch (dirPush)
+                            {
+                                case Direction.North: vBlock.Y--; break;
+                                case Direction.South: vBlock.Y++; break;
+                                case Direction.East: vBlock.X++; break;
+                                case Direction.West: vBlock.X--; break;
+                            }
+                        }
+                        else
+                        {
+                            bTest = false;
+                        }
+                    }
+                    else
+                    {
+                        bAllowPush = true;
+                        bTest = false;
+                    }
+                }
+
+                if (bAllowPush)
+                {
+                    lastAction = gameTime.TotalGameTime.TotalMilliseconds;
+                    while (vBlock != vPlayer)
+                    {
+                        var vSource = vBlock;
+                        switch (dirPush)
+                        {
+                            case Direction.North: vSource.Y++; break;
+                            case Direction.South: vSource.Y--; break;
+                            case Direction.East: vSource.X--; break;
+                            case Direction.West: vSource.X++; break;
+                        }
+                        Swap(lLevel, Id(vSource), Id(vBlock));
+                        vBlock = vSource;
+                    }
+                    
+                    switch (dirPush)
+                    {
+                        case Direction.North: vPlayer.Y--; break;
+                        case Direction.South: vPlayer.Y++; break;
+                        case Direction.East: vPlayer.X++; break;
+                        case Direction.West: vPlayer.X--; break;
+                    }
+                }
+            }
             base.Update(gameTime);
         }
 
