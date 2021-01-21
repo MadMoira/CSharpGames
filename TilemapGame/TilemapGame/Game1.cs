@@ -5,7 +5,7 @@ using Microsoft.Xna.Framework.Input;
 
 namespace TilemapGame
 {
-    internal enum Direction
+    public enum Direction
     {
         North = 0,
         East = 1,
@@ -13,10 +13,10 @@ namespace TilemapGame
         West = 3,
     }
     
-    public interface IBlock
+    interface IBlock
     {
         public void DrawSelf(SpriteBatch sb, Texture2D tiles, Vector2 pos, Vector2 size);
-        bool Push(int from);
+        public bool Push(int from);
     }
     
     public class block_solid : IBlock
@@ -52,9 +52,35 @@ namespace TilemapGame
             sb.Draw(tiles, pos*size, new Rectangle(64, 0, (int) size.X, (int) size.Y), Color.White);
         }
 
-        public bool Push(int @from)
+        public bool Push(int from)
         {
             return true;
+        }
+    }
+    
+    public class block_horizontal : IBlock
+    {
+        public void DrawSelf(SpriteBatch sb, Texture2D tiles, Vector2 pos, Vector2 size)
+        {
+            sb.Draw(tiles, pos*size, new Rectangle(64, 0, (int) size.X, (int) size.Y), Color.White);
+        }
+
+        public bool Push(int from)
+        {
+            return @from == (int)Direction.East || @from == (int)Direction.West;
+        }
+    }
+    
+    public class block_vertical : IBlock
+    {
+        public void DrawSelf(SpriteBatch sb, Texture2D tiles, Vector2 pos, Vector2 size)
+        {
+            sb.Draw(tiles, pos*size, new Rectangle(64, 0, (int) size.X, (int) size.Y), Color.White);
+        }
+
+        public bool Push(int from)
+        {
+            return @from == (int)Direction.North || @from == (int)Direction.South;
         }
     }
     
@@ -74,17 +100,17 @@ namespace TilemapGame
             #........++....#
             #..............#
             #........#.....#
-            #........#.....#
+            #...|....#.....#
             #..............#
             #....P.........#
-            #..............#
+            #...-.....-....#
             #..............#
             ################
         ";
 
         private readonly List<IBlock> lLevel = new List<IBlock>();
         private readonly Vector2 vLevelSize = new Vector2(16, 15);
-        private readonly Vector2 vTileSize = new Vector2(16, 16);
+        private readonly Vector2 vTileSize = new Vector2(32, 32);
         private Vector2 vPlayer;
         private double lastAction;
         private const double timeBetweenActions = 150;
@@ -112,6 +138,14 @@ namespace TilemapGame
                             lLevel.Add(new block_simple());
                             break;
                         
+                        case '-':
+                            lLevel.Add(new block_horizontal());
+                            break;
+                        
+                        case '|':
+                            lLevel.Add(new block_vertical());
+                            break;
+                        
                         default:
                             lLevel.Add(null);
                             break;
@@ -136,8 +170,8 @@ namespace TilemapGame
 
         protected override void Initialize()
         {
-            _graphics.PreferredBackBufferHeight = 460;
-            _graphics.PreferredBackBufferWidth = 800;
+            _graphics.PreferredBackBufferHeight = 480;
+            _graphics.PreferredBackBufferWidth = 512;
             _graphics.ApplyChanges();
             
             LoadLevel(0);
